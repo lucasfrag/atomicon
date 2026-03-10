@@ -9,6 +9,7 @@ class ClaimContext:
         self.documents = []
         self.stances = []
         self.passages = []
+        self.qa_pairs = []
         self.evidence = []
         self.verdict = None
         self.justification = None

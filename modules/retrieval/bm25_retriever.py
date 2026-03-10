@@ -15,8 +15,9 @@ class BM25Retriever:
         tokenized = [p.split() for p in context.passages]
 
         bm25 = BM25Okapi(tokenized)
+        query = context.claim + " " + " ".join(context.questions)
 
-        scores = bm25.get_scores(context.claim.split())
+        scores = bm25.get_scores(query.split())
 
         ranked = sorted(
             zip(context.passages, scores),
