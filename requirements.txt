@@ -1,0 +1,9 @@
+rank_bm25
+ollama
+trafilatura
+sentence-transformers
+spacy
+pyyaml
+requests
+trafilatura
+python-dotenv
