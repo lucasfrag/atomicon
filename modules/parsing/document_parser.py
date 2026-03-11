@@ -1,5 +1,6 @@
-import requests
 import trafilatura
+
+from utils.page_cache import load_page, save_page
 
 
 class DocumentParser:
@@ -10,6 +11,16 @@ class DocumentParser:
 
         for url in context.search_results:
 
+            cached = load_page(url)
+
+            if cached:
+
+                print("PAGE CACHE HIT:", url)
+
+                documents.append(cached)
+
+                continue
+
             try:
 
                 downloaded = trafilatura.fetch_url(url)
@@ -17,6 +28,8 @@ class DocumentParser:
                 text = trafilatura.extract(downloaded)
 
                 if text:
+
+                    save_page(url, text)
 
                     documents.append(text)
 

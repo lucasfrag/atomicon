@@ -9,21 +9,24 @@ class JustificationGenerator:
         evidence_text = "\n\n".join(context.evidence[:5])
 
         prompt = f"""
-You are a fact-checking assistant.
+        You are a fact-checking assistant.
 
-Claim:
-{context.claim}
+        Claim:
+        {context.claim}
 
-Evidence:
-{evidence_text}
+        Evidence:
+        {evidence_text}
 
-Verdict:
-{context.verdict}
+        Verdict:
+        {context.verdict}
 
-Write a short justification explaining why the evidence leads to this verdict.
+        Explain briefly how the evidence relates to the claim.
 
-The justification should be 2–3 sentences.
-"""
+        Do not judge people or accuse anyone of wrongdoing.
+        Simply summarize the relationship between the evidence and the claim.
+
+        Write 2–3 neutral sentences.
+        """
 
         justification = self.llm.generate(prompt).strip()
 
