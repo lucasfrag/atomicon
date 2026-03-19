@@ -77,7 +77,8 @@ def run():
             context = ClaimContext(
                 claim_id=claim_id,
                 claim_text=item["claim"],
-                claim_date=item.get("claim_date")
+                claim_date=item.get("claim_date"),
+                speaker=item.get("speaker")
             )
 
             result = pipeline.run(context)

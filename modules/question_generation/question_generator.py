@@ -17,6 +17,9 @@ class QuestionGenerator:
         Claim date:
         {context.claim_date}
 
+        Speaker:
+        {context.speaker}
+
         Instructions:
         - Generate specific, factual questions
         - Focus on verifiable facts (who, what, when, where)

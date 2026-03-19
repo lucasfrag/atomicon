@@ -60,7 +60,7 @@ class ResultWriter:
             "claim": item.get("claim"),
             "prediction": result.verdict,
             "gold_label": item.get("label"),
-
+            "speaker": item.get("speaker"),
             "pipeline": {
                 "steps": steps,
                 "final_verdict": result.verdict

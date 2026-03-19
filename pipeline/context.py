@@ -1,9 +1,10 @@
 class ClaimContext:
 
-    def __init__(self, claim_id, claim_text, claim_date=None):
+    def __init__(self, claim_id, claim_text, claim_date=None, speaker=None):
         self.id = claim_id
         self.claim = claim_text
         self.claim_date = claim_date or "Unknown"
+        self.speaker = speaker or "Unknown"
         self.questions = []
         self.search_results = []
         self.documents = []

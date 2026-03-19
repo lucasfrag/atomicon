@@ -3,7 +3,7 @@ class LLMStanceDetector:
     def __init__(self, llm):
         self.llm = llm
 
-    def classify(self, claim, evidence_text, claim_date):
+    def classify(self, claim, evidence_text, claim_date, speaker):
 
         prompt = f"""
         Task: Determine the relationship between the claim and the evidence.
@@ -13,6 +13,9 @@ class LLMStanceDetector:
 
         Claim date:
         {claim_date}
+
+        Speaker:
+        {speaker}
 
         Evidence:
         {evidence_text}
@@ -61,7 +64,7 @@ class LLMStanceDetector:
         for e in context.evidence:
             text = e["text"]
 
-            stance = self.classify(context.claim, text, context.claim_date)
+            stance = self.classify(context.claim, text, context.claim_date, context.speaker)
 
             stances.append({
                 "text": text,
