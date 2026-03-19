@@ -1,9 +1,8 @@
 import requests
-
 from utils.cache_utils import load_cache, save_cache
 
 
-class WebSearch:
+class BraveSearch:
 
     def __init__(self, api_key):
         self.api_key = api_key
@@ -11,13 +10,9 @@ class WebSearch:
 
     def search(self, query):
 
-        # 1️⃣ verificar cache
-
+        # 1️⃣ cache
         if query in self.cache:
-            #print("CACHE HIT:", query)
             return self.cache[query]
-
-        #print("API SEARCH:", query)
 
         url = "https://api.search.brave.com/res/v1/web/search"
 
@@ -31,28 +26,34 @@ class WebSearch:
             "count": 5
         }
 
-        response = requests.get(url, headers=headers, params=params)
-
-        data = response.json()
+        try:
+            response = requests.get(url, headers=headers, params=params)
+            data = response.json()
+        except Exception:
+            return []
 
         results = []
 
         for r in data.get("web", {}).get("results", []):
-            results.append(r["url"])
+            if "url" in r:
+                results.append(r["url"])
 
-        # 2️⃣ salvar no cache
-
+        # 2️⃣ cache
         self.cache[query] = results
         save_cache(self.cache)
+
         return results
 
     def run(self, context):
-        queries = [context.claim] + context.questions
+
+        queries = [context.claim] + getattr(context, "questions", [])
+
         urls = []
 
         for q in queries:
             urls.extend(self.search(q))
 
+        # remove duplicados
         context.search_results = list(set(urls))[:10]
 
         return context

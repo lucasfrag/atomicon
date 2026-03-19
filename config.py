@@ -11,7 +11,14 @@ class Config:
     LANGUAGE = os.getenv("LANGUAGE", "en")
 
     # Search Engine API Keys
+    SEARCH_ENGINE = os.getenv("SEARCH_ENGINE", "brave")
+
     BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
+
+    SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+
+    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+    GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
 
     # Retrieval
     BM25_TOP_K = int(os.getenv("BM25_TOP_K", 10))

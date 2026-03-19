@@ -7,3 +7,5 @@ pyyaml
 requests
 trafilatura
 python-dotenv
+serpapi
+google-search-results
