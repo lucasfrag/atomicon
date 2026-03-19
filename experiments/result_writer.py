@@ -7,7 +7,6 @@ class ResultWriter:
         self.results = []
 
     def add(self, item, result):
-
         steps = []
 
         num_steps = len(result.qa_pairs)
@@ -16,23 +15,43 @@ class ResultWriter:
 
             qa = result.qa_pairs[i]
 
-            # tenta pegar evidence por step (ideal)
+            # pega evidence do step
             if isinstance(result.evidence, list) and i < len(result.evidence):
-                evidence = result.evidence[i]
+                evidence_list = result.evidence[i]
             else:
-                evidence = result.evidence  # fallback (não ideal)
+                evidence_list = result.evidence
 
-            # tenta pegar stance por step
+            # garante que é lista
+            if not isinstance(evidence_list, list):
+                evidence_list = [evidence_list]
+
+            # pega stance do step
             if isinstance(result.stances, list) and i < len(result.stances):
                 stance = result.stances[i]
             else:
                 stance = None
 
+            processed_evidence = []
+
+            for ev in evidence_list:
+
+                if isinstance(ev, dict):
+                    processed_evidence.append({
+                        "text": ev.get("text"),
+                        "bm25_score": ev.get("bm25_score"),
+                        "rerank_score": ev.get("rerank_score"),
+                        "label": stance.get("label") if isinstance(stance, dict) else stance
+                    })
+                else:
+                    processed_evidence.append({
+                        "text": str(ev),
+                        "label": stance
+                    })
+
             step = {
                 "question": qa.get("question"),
                 "answer": qa.get("answer"),
-                "evidence": evidence,
-                "stance": stance
+                "evidence": processed_evidence
             }
 
             steps.append(step)
