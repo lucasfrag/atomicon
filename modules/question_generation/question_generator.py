@@ -62,6 +62,11 @@ Instructions:
 - If claim involves attribution, verify speaker/source
 - If claim involves numbers, verify quantities
 
+CRITICAL:
+- Include key entities from the claim (names, organizations)
+- Avoid generic terms like "evidence" without context
+- Questions must stay semantically close to the claim
+
 Output:
 Provide only the question.
 """

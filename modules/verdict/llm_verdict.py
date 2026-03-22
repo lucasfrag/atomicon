@@ -52,6 +52,8 @@ Instructions:
 Be conservative:
 - Prefer REFUTED over SUPPORTED when conflict exists
 
+If evidence is irrelevant or inconsistent with the claim, do NOT support the claim.
+
 ---
 
 Output:
