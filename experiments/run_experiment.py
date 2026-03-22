@@ -1,6 +1,8 @@
 import sys
 import os
 import json
+import argparse
+import subprocess
 from datetime import datetime
 from tqdm import tqdm
 
@@ -19,12 +21,63 @@ from result_writer import ResultWriter
 # 🔧 CONFIG
 VERBOSE = True
 PRINT_EVERY = 1
-SAVE_EVERY = 10   # ⬅️ salva a cada N exemplos
+SAVE_EVERY = 10
 
+
+# =========================
+# Utils
+# =========================
 
 def load_dataset(path):
     with open(path) as f:
         return json.load(f)
+
+
+def get_latest_run(base_dir="outputs"):
+    if not os.path.exists(base_dir):
+        return None
+
+    subdirs = [
+        os.path.join(base_dir, d)
+        for d in os.listdir(base_dir)
+        if os.path.isdir(os.path.join(base_dir, d))
+    ]
+
+    if not subdirs:
+        return None
+
+    # ✅ melhor que mtime → usa timestamp no nome
+    return max(subdirs)
+
+
+def load_env_filtered():
+    allowed_keys = [
+        "OLLAMA_MODEL",
+        "LLM_TEMPERATURE",
+        "LANGUAGE",
+        "SEARCH_ENGINE",
+        "SEARCH_MAX_RESULTS",
+        "SEARCH_MAX_URLS",
+        "SEARCH_MAX_WORKERS",
+        "BM25_TOP_K",
+        "USE_QUESTION_FOR_RETRIEVAL",
+        "RERANKER_MODEL",
+        "RERANKER_TOP_K",
+        "RERANKER_THRESHOLD",
+        "USE_RERANKER",
+        "CHUNK_SIZE",
+    ]
+
+    return {k: os.getenv(k) for k in allowed_keys}
+
+
+def get_git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"]
+        ).decode().strip()
+    except Exception:
+        return None
 
 
 def print_step_debug(step, step_id):
@@ -41,25 +94,66 @@ def print_step_debug(step, step_id):
         print(f"   Evidence (top): {text[:200]}...")
 
 
+# =========================
+# Main
+# =========================
+
 def run():
 
-    # 🧪 cria diretório único do experimento
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_dir = os.path.join("outputs", timestamp)
-    os.makedirs(run_dir, exist_ok=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Path to existing run directory or 'latest'"
+    )
+    args = parser.parse_args()
 
-    print(f"\n📁 Run directory: {run_dir}")
+    # =========================
+    # Run directory
+    # =========================
 
-    # 🔧 pipeline
+    if args.resume:
+        if args.resume == "latest":
+            run_dir = get_latest_run()
+
+            if run_dir is None:
+                raise ValueError("No previous runs found in outputs/")
+
+            print(f"\n♻️ Resuming latest run: {run_dir}")
+        else:
+            run_dir = args.resume
+            print(f"\n♻️ Resuming run: {run_dir}")
+    else:
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        run_dir = os.path.join("outputs", timestamp)
+        os.makedirs(run_dir, exist_ok=True)
+        print(f"\n📁 New run directory: {run_dir}")
+
+    # =========================
+    # Pipeline
+    # =========================
+
     pipeline = averitec_pipeline()
 
-    # 💾 salva config do experimento
-    with open(os.path.join(run_dir, "config.json"), "w") as f:
-        json.dump({
-            "datasets": ExperimentConfig.DATASETS,
-            "model": os.getenv("OLLAMA_MODEL"),
-            "temperature": os.getenv("LLM_TEMPERATURE"),
-        }, f, indent=2)
+    # =========================
+    # Save config (only if new run)
+    # =========================
+
+    config_path = os.path.join(run_dir, "config.json")
+
+    if not os.path.exists(config_path):
+        with open(config_path, "w") as f:
+            json.dump({
+                "datasets": ExperimentConfig.DATASETS,
+                "env": load_env_filtered(),
+                "git_commit": get_git_commit(),
+                "created_at": datetime.now().isoformat()
+            }, f, indent=2)
+
+    # =========================
+    # Loop datasets
+    # =========================
 
     for dataset_cfg in ExperimentConfig.DATASETS:
 
@@ -76,6 +170,7 @@ def run():
         total = len(data)
 
         done_ids = set(ckpt.state["processed_ids"])
+
         pbar = tqdm(total=total, desc=name)
         pbar.update(len(done_ids))
 
@@ -87,7 +182,7 @@ def run():
                 continue
 
             if VERBOSE and i % PRINT_EVERY == 0:
-                print("\n" + "="*80)
+                print("\n" + "=" * 80)
                 print(f"🧾 CLAIM {claim_id}")
                 print(item["claim"])
 
@@ -100,7 +195,10 @@ def run():
 
             result = pipeline.run(context)
 
-            # 🧠 debug
+            # =========================
+            # Debug
+            # =========================
+
             if VERBOSE and i % PRINT_EVERY == 0:
 
                 steps = getattr(result, "steps", [])
@@ -117,17 +215,19 @@ def run():
                 print(f"   PRED: {result.verdict}")
                 print(f"   GT  : {gt}")
 
-            # 💾 salva resultado
+            # =========================
+            # Save
+            # =========================
+
             writer.add(item, result)
             ckpt.mark_done(claim_id)
 
-            # 💾 salvamento incremental
             if i % SAVE_EVERY == 0:
                 writer.save(os.path.join(run_dir, f"{name}.json"))
 
             pbar.update(1)
 
-        # 💾 save final
+        # final save
         writer.save(os.path.join(run_dir, f"{name}.json"))
         pbar.close()
 
