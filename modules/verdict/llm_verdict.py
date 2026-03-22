@@ -6,21 +6,26 @@ class LLMVerdict(BaseVerdict):
     SUPPORTED = "SUPPORTED"
     REFUTED = "REFUTED"
     NEE = "NOT ENOUGH EVIDENCE"
-    CONFLICT = "CONFLICTING"
+    CONFLICT = "CONFLICTING EVIDENCE/CHERRYPICKING"
 
     def __init__(self, llm):
         self.llm = llm
 
+    # -----------------------------
+    # 🧠 PROMPT
+    # -----------------------------
     def build_prompt(self, context):
 
-        support_text = "\n\n".join(
-            e["text"] if isinstance(e, dict) else str(e)
-            for e in context.support_evidence[:5]
+        # 🔥 usar stance estruturado
+        stance_block = "\n\n".join(
+            f"[{s.get('label', 'UNKNOWN')}] {s.get('text', '')}"
+            for s in getattr(context, "stances", [])[:8]
         )
 
-        refute_text = "\n\n".join(
+        # 🔥 fallback: evidência bruta
+        raw_evidence = "\n\n".join(
             e["text"] if isinstance(e, dict) else str(e)
-            for e in context.refute_evidence[:5]
+            for e in getattr(context, "evidence", [])[:5]
         )
 
         return f"""
@@ -31,28 +36,45 @@ Claim:
 
 ---
 
-Supporting evidence:
-{support_text}
+Evidence with stance labels:
+{stance_block}
 
 ---
 
-Refuting evidence:
-{refute_text}
+Additional raw evidence:
+{raw_evidence}
+
+---
+
+Scores:
+- SUPPORT score: {getattr(context, "support_score", 0):.2f}
+- REFUTE score: {getattr(context, "refute_score", 0):.2f}
 
 ---
 
 Instructions:
 
-- Compare supporting and refuting evidence carefully
-- If strong contradiction exists → REFUTED
-- If evidence clearly supports → SUPPORTED
-- If evidence is weak or insufficient → NOT ENOUGH EVIDENCE
-- If both strong support and refutation exist → CONFLICTING
+1. PRIORITIZE stance labels when they are consistent.
 
-Be conservative:
-- Prefer REFUTED over SUPPORTED when conflict exists
+2. If multiple pieces of evidence are labeled REFUTED → REFUTED.
 
-If evidence is irrelevant or inconsistent with the claim, do NOT support the claim.
+3. If multiple pieces are labeled SUPPORTED → SUPPORTED.
+
+4. If evidence explicitly says something is false, fake, or did not happen → REFUTED.
+
+5. If evidence clearly confirms the claim → SUPPORTED.
+
+6. If evidence is weak, missing, or irrelevant → NOT ENOUGH EVIDENCE.
+
+7. If both strong support and refutation exist → CONFLICTING EVIDENCE/CHERRYPICKING.
+
+---
+
+CRITICAL RULES:
+
+- Absence of evidence for a claim asserting existence → REFUTED
+- Explicit negation ("did not happen", "fake", "false") → REFUTED
+- Do NOT ignore stance labels
 
 ---
 
@@ -62,9 +84,12 @@ Return ONLY one label:
 SUPPORTED
 REFUTED
 NOT ENOUGH EVIDENCE
-CONFLICTING
+CONFLICTING EVIDENCE/CHERRYPICKING
 """
 
+    # -----------------------------
+    # 🔤 NORMALIZAÇÃO
+    # -----------------------------
     def normalize(self, response: str):
 
         if not response:
@@ -78,7 +103,7 @@ CONFLICTING
         if "SUPPORT" in r:
             return self.SUPPORTED
 
-        if "CONFLICT" in r:
+        if "CONFLICTING EVIDENCE/CHERRYPICKING" in r:
             return self.CONFLICT
 
         if "NOT ENOUGH" in r or "INSUFFICIENT" in r:
@@ -86,7 +111,22 @@ CONFLICTING
 
         return self.NEE
 
+    # -----------------------------
+    # 🎯 RUN
+    # -----------------------------
     def run(self, context):
+
+        # 🔥 fallback crítico (sem stance → usa contagem simples)
+        if not getattr(context, "stances", None):
+
+            texts = " ".join(
+                e["text"] if isinstance(e, dict) else str(e)
+                for e in getattr(context, "evidence", [])
+            ).lower()
+
+            if any(w in texts for w in ["fake", "false", "did not", "never"]):
+                context.verdict = self.REFUTED
+                return context
 
         prompt = self.build_prompt(context)
 
