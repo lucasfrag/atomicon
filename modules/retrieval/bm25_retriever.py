@@ -11,34 +11,67 @@ class BM25Retriever:
         if not context.documents:
             return context
 
+        # 🔹 escolher query
         if Config.USE_QUESTION_FOR_RETRIEVAL and context.questions:
-            query = context.questions[-1]  # 🔥 só a última pergunta
+            query = context.questions[-1]
         else:
             query = context.claim
 
-        tokenized_docs = [doc.split() for doc in context.documents]
+        docs = context.documents
+
+        # 🔥 tokenização robusta (suporta dict ou str)
+        tokenized_docs = [
+            (doc["text"] if isinstance(doc, dict) else doc).split()
+            for doc in docs
+        ]
+
         tokenized_query = query.split()
 
         bm25 = BM25Okapi(tokenized_docs)
         scores = bm25.get_scores(tokenized_query)
 
+        # 🔥 ranking mantendo estrutura original
         ranked = sorted(
-            zip(context.documents, scores),
+            zip(docs, scores),
             key=lambda x: x[1],
             reverse=True
         )
 
-        top_docs = [doc for doc, _ in ranked[:self.top_k]]
+        top_docs = []
 
-        # 🆕 manter histórico sem duplicar
+        for doc, score in ranked[:self.top_k]:
+
+            if isinstance(doc, dict):
+                new_doc = {
+                    **doc,
+                    "bm25_score": float(score)  # 🔥 adiciona score sem perder url
+                }
+            else:
+                new_doc = {
+                    "text": doc,
+                    "url": None,
+                    "bm25_score": float(score)
+                }
+
+            top_docs.append(new_doc)
+
+        # 🔹 histórico (sem duplicar por URL se existir)
         if not hasattr(context, "retrieved_documents"):
             context.retrieved_documents = []
 
-        for doc in top_docs:
-            if doc not in context.retrieved_documents:
-                context.retrieved_documents.append(doc)
+        seen = set(
+            d.get("url", d.get("text"))
+            for d in context.retrieved_documents
+            if isinstance(d, dict)
+        )
 
-        # manter compatibilidade com resto do pipeline
+        for doc in top_docs:
+            key = doc.get("url") or doc.get("text")
+            if key not in seen:
+                context.retrieved_documents.append(doc)
+                seen.add(key)
+
+        # 🔥 importante: manter formato consistente
         context.documents = top_docs
-        
+
         return context

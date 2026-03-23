@@ -12,20 +12,20 @@ class LLMVerdict(BaseVerdict):
         self.llm = llm
 
     # -----------------------------
-    # 🧠 PROMPT
+    # 🧠 PROMPT (SEM STANCE!)
     # -----------------------------
     def build_prompt(self, context):
 
-        # 🔥 usar stance estruturado
-        stance_block = "\n\n".join(
-            f"[{s.get('label', 'UNKNOWN')}] {s.get('text', '')}"
-            for s in getattr(context, "stances", [])[:8]
+        # 🔹 evidências (top-k já rerankeadas)
+        evidence_block = "\n\n".join(
+            f"[{i+1}] {e['text']}"
+            for i, e in enumerate(getattr(context, "evidence", [])[:8])
         )
 
-        # 🔥 fallback: evidência bruta
-        raw_evidence = "\n\n".join(
-            e["text"] if isinstance(e, dict) else str(e)
-            for e in getattr(context, "evidence", [])[:5]
+        # 🔹 respostas derivadas (opcional, mas útil)
+        qa_block = "\n\n".join(
+            f"Q: {qa.get('question', '')}\nA: {qa.get('answer', '')}"
+            for qa in getattr(context, "qa_pairs", [])[:5]
         )
 
         return f"""
@@ -34,47 +34,39 @@ Task: Determine the final verdict of a claim based on evidence.
 Claim:
 {context.claim}
 
----
+Claim date:
+{context.claim_date}
 
-Evidence with stance labels:
-{stance_block}
-
----
-
-Additional raw evidence:
-{raw_evidence}
+Speaker:
+{context.speaker}
 
 ---
 
-Scores:
-- SUPPORT score: {getattr(context, "support_score", 0):.2f}
-- REFUTE score: {getattr(context, "refute_score", 0):.2f}
+Evidence:
+{evidence_block}
+
+---
+
+Answers derived from evidence (may be incomplete or noisy):
+{qa_block}
 
 ---
 
 Instructions:
 
-1. PRIORITIZE stance labels when they are consistent.
+- You must determine whether the evidence SUPPORTS or REFUTES the claim.
 
-2. If multiple pieces of evidence are labeled REFUTED → REFUTED.
+- IMPORTANT:
+  Evidence may refute a statement that is OPPOSITE to the claim.
+  Always reason directly about the claim.
 
-3. If multiple pieces are labeled SUPPORTED → SUPPORTED.
+- Do NOT rely on keywords like "false", "fake", or "not true" alone.
+  Interpret what is being negated.
 
-4. If evidence explicitly says something is false, fake, or did not happen → REFUTED.
-
-5. If evidence clearly confirms the claim → SUPPORTED.
-
-6. If evidence is weak, missing, or irrelevant → NOT ENOUGH EVIDENCE.
-
-7. If both strong support and refutation exist → CONFLICTING EVIDENCE/CHERRYPICKING.
-
----
-
-CRITICAL RULES:
-
-- Absence of evidence for a claim asserting existence → REFUTED
-- Explicit negation ("did not happen", "fake", "false") → REFUTED
-- Do NOT ignore stance labels
+- If evidence confirms the claim → SUPPORTED
+- If evidence contradicts the claim → REFUTED
+- If evidence is insufficient or unclear → NOT ENOUGH EVIDENCE
+- If both strong support and refutation exist → CONFLICTING EVIDENCE/CHERRYPICKING
 
 ---
 
@@ -103,7 +95,7 @@ CONFLICTING EVIDENCE/CHERRYPICKING
         if "SUPPORT" in r:
             return self.SUPPORTED
 
-        if "CONFLICTING EVIDENCE/CHERRYPICKING" in r:
+        if "CONFLICT" in r:
             return self.CONFLICT
 
         if "NOT ENOUGH" in r or "INSUFFICIENT" in r:
@@ -116,17 +108,10 @@ CONFLICTING EVIDENCE/CHERRYPICKING
     # -----------------------------
     def run(self, context):
 
-        # 🔥 fallback crítico (sem stance → usa contagem simples)
-        if not getattr(context, "stances", None):
-
-            texts = " ".join(
-                e["text"] if isinstance(e, dict) else str(e)
-                for e in getattr(context, "evidence", [])
-            ).lower()
-
-            if any(w in texts for w in ["fake", "false", "did not", "never"]):
-                context.verdict = self.REFUTED
-                return context
+        # 🔹 fallback simples (caso extremo sem evidência)
+        if not getattr(context, "evidence", None):
+            context.verdict = self.NEE
+            return context
 
         prompt = self.build_prompt(context)
 

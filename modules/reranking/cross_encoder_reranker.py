@@ -48,7 +48,7 @@ class CrossEncoderReranker:
         # 🆕 nova evidência
         new_evidence = [
             {
-                "text": p["text"],
+                **p,
                 "rerank_score": float(s)
             }
             for p, s in top_passages

@@ -13,8 +13,10 @@ class DocumentParser:
             cached = load_page(url)
 
             if cached:
-                #print("PAGE CACHE HIT:", url)
-                documents.append(cached)
+                documents.append({
+                    "url": url,
+                    "text": cached
+                })
                 continue
 
             try:
@@ -23,7 +25,11 @@ class DocumentParser:
 
                 if text:
                     save_page(url, text)
-                    documents.append(text)
+
+                    documents.append({
+                        "url": url,      # 🔥 mantém origem
+                        "text": text
+                    })
 
             except:
                 continue

@@ -20,12 +20,17 @@ class PassageExtractor:
         passages = []
 
         for doc in context.documents:
-            chunks = self.chunk_text(doc)
+
+            # 🔥 NOVO: extrair corretamente
+            text = doc.get("text", "")
+            url = doc.get("url")
+
+            chunks = self.chunk_text(text)
 
             for chunk in chunks:
                 passages.append({
                     "text": chunk,
-                    "source": doc  # opcional, mas útil pra debug
+                    "url": url,  # 🔥 propaga origem
                 })
 
         context.passages = passages

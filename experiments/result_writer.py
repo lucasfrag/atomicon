@@ -32,12 +32,14 @@ class ResultWriter:
                 if isinstance(ev, dict):
                     processed_evidence.append({
                         "text": ev.get("text"),
+                        "url": ev.get("url"),
                         "rerank_score": ev.get("rerank_score"),
                         #"label": stance.get("label") if isinstance(stance, dict) else stance
                     })
                 else:
                     processed_evidence.append({
                         "text": str(ev),
+                        "url": None,
                         #"label": stance
                     })
 
@@ -73,7 +75,7 @@ class ResultWriter:
             existing_data = []
 
         # 🔥 concatena
-        all_results = existing_data + self.results
+        all_results = self.results
 
         # 🔥 salva tudo
         with open(path, "w", encoding="utf-8") as f:
