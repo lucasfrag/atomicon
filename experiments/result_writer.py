@@ -32,14 +32,13 @@ class ResultWriter:
                 if isinstance(ev, dict):
                     processed_evidence.append({
                         "text": ev.get("text"),
-                        "bm25_score": ev.get("bm25_score"),
                         "rerank_score": ev.get("rerank_score"),
-                        "label": stance.get("label") if isinstance(stance, dict) else stance
+                        #"label": stance.get("label") if isinstance(stance, dict) else stance
                     })
                 else:
                     processed_evidence.append({
                         "text": str(ev),
-                        "label": stance
+                        #"label": stance
                     })
 
             step = {
@@ -63,5 +62,19 @@ class ResultWriter:
     def save(self, path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
 
+        # 🔥 carrega dados antigos se existirem
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                try:
+                    existing_data = json.load(f)
+                except json.JSONDecodeError:
+                    existing_data = []
+        else:
+            existing_data = []
+
+        # 🔥 concatena
+        all_results = existing_data + self.results
+
+        # 🔥 salva tudo
         with open(path, "w", encoding="utf-8") as f:
-            json.dump(self.results, f, indent=2, ensure_ascii=False)
+            json.dump(all_results, f, indent=2, ensure_ascii=False)
