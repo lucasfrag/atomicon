@@ -53,6 +53,7 @@ class ResultWriter:
 
         self.results.append({
             "claim": item.get("claim"),
+            "claim_date": item.get("claim_date"),
             "prediction": result.verdict,
             "gold_label": item.get("label"),
             "speaker": item.get("speaker"),
