@@ -33,21 +33,9 @@ def load_dataset(path):
         return json.load(f)
 
 
-def get_latest_run(base_dir="outputs/averitec_iterative_pipeline"):
-    if not os.path.exists(base_dir):
-        return None
-
-    subdirs = [
-        os.path.join(base_dir, d)
-        for d in os.listdir(base_dir)
-        if os.path.isdir(os.path.join(base_dir, d))
-    ]
-
-    if not subdirs:
-        return None
-
-    # ✅ melhor que mtime → usa timestamp no nome
-    return max(subdirs)
+def get_model_name():
+    model = os.getenv("OLLAMA_MODEL", "unknown_model")
+    return model.replace(":", "-").lower()
 
 
 def load_env_filtered():
@@ -108,7 +96,7 @@ def load_done_ids(path):
             except:
                 continue
 
-    return done        
+    return done
 
 
 # =========================
@@ -118,28 +106,24 @@ def load_done_ids(path):
 def run():
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Nome do modelo para resumir (ex: gemma3-4b)")
     args = parser.parse_args()
 
     # =========================
-    # Run directory
+    # Run directory (MODEL-BASED)
     # =========================
 
     if args.resume:
-        if args.resume == "latest":
-            run_dir = get_latest_run()
-            if run_dir is None:
-                raise ValueError("No previous runs found")
-
-            print(f"\n♻️ Resuming latest run: {run_dir}")
-        else:
-            run_dir = args.resume
-            print(f"\n♻️ Resuming run: {run_dir}")
+        model_name = args.resume
+        print(f"\n♻️ Resuming model: {model_name}")
     else:
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        run_dir = os.path.join("outputs/averitec_iterative_pipeline", timestamp)
-        os.makedirs(run_dir, exist_ok=True)
-        print(f"\n📁 New run directory: {run_dir}")
+        model_name = get_model_name()
+
+    run_dir = os.path.join("outputs/averitec_iterative_pipeline", model_name)
+    os.makedirs(run_dir, exist_ok=True)
+
+    print(f"\n📁 Run directory: {run_dir}")
 
     pipeline = averitec_iterative_pipeline()
 
@@ -222,6 +206,7 @@ def run():
             pbar.update(1)
 
         pbar.close()
+
 
 if __name__ == "__main__":
     run()
